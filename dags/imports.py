@@ -5,6 +5,7 @@ import pandas as pd
 import json
 from typing import Optional
 
+import io
 
 import boto3
 from botocore.exceptions import NoCredentialsError

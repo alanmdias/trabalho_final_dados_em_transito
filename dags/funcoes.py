@@ -66,3 +66,37 @@ def renomear_chaves(dado, mapa):
         return [renomear_chaves(item, mapa) for item in dado]
     else:
         return dado
+    
+
+# Função para obter dados, agora reutilizando a sessão
+def get_dados_v2(session, 
+         base, 
+         categoria,
+         token: Optional[str] = "",
+         metodo: Optional[str] = "", 
+         sufix: Optional[str] = "",
+         auth: Optional[str] = "", 
+         parametro: Optional[str] = ""):
+
+    # Corrigindo o path para autenticação
+    #path_auth = gerar_path(base, auth="Login/Autenticar", token=token)
+    
+    #auth_response = session.post(path_auth)
+    
+    # Verifica se a autenticação foi bem-sucedida
+    #if auth_response.text == "true":
+        #print("Autenticacao realizada com sucesso!")
+        
+        # Gerar o path para buscar os dados
+        path_get = gerar_path(base, categoria, metodo, sufix, parametro, token="")
+        response_get = session.get(path_get)
+        
+        if response_get.status_code == 200:
+            dados = response_get.json()
+            return dados
+        else:
+            print(f"Erro na requisicao de dados: {response_get.status_code}")
+            return None
+    #else:
+        #print("Falha na autenticacao:", auth_response.text)
+        #return None
