@@ -85,8 +85,8 @@ def inserir_dados_raw():
     # Definindo variáveis para salvar dados no raw do minio
     minio_url = "http://minio:9000" # QUANDO FOR RODAR NO AIRFLOW
     #minio_url = "http://localhost:9050" # QUANDO ESTIVER LOCAL
-    access_key = "VsbEm45pTDOcC6dVo5Vk"
-    secret_key = "4heTCFf5gT2M4xpJYElhbk8h7fo6TVAn7f4yl4gH"
+    access_key = "pN2nJpDS8zkBM79eIKrh"
+    secret_key = "AYoyusCiw9CGodBvpOe3VL5Qlote2SUVSiZnSfxu"
     
 
     s3_client = boto3.client(
@@ -286,7 +286,7 @@ def inserir_dados_raw():
 
 # Criando o DAG
 with DAG(
-    'oficial_bronze_prata',
+    'dag_api_to_raw_to_trusted',
     default_args=default_args,
     description='Uma DAG de exemplo para ingestão de dados',
     catchup=False,

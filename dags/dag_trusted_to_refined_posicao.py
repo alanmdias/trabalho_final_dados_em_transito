@@ -23,8 +23,8 @@ from funcoes import obter_dia_semana, extrair_dados_silver_v3, salvar_dataframe_
 
 # Configurações do MinIO
 MINIO_ENDPOINT = "http://minio:9000"
-MINIO_ACCESS_KEY = "6MCHYeyIPu8gka6gvIns"
-MINIO_SECRET_KEY = "QaMn37c0t8QsAWy1NLpnXKIfDoY6CMxb9ZYoHQw3"
+MINIO_ACCESS_KEY = "pN2nJpDS8zkBM79eIKrh" #"6MCHYeyIPu8gka6gvIns"
+MINIO_SECRET_KEY = "AYoyusCiw9CGodBvpOe3VL5Qlote2SUVSiZnSfxu" #"QaMn37c0t8QsAWy1NLpnXKIfDoY6CMxb9ZYoHQw3"
 SILVER_BUCKET = "silver"
 GOLD_BUCKET = "gold"
 
@@ -57,34 +57,38 @@ def inserir_dados_gold():
     # Chamar a função
     df_posicao = extrair_dados_silver_v3(s3_client,MINIO_ENDPOINT, MINIO_ACCESS_KEY, MINIO_SECRET_KEY, SILVER_BUCKET, GOLD_BUCKET, file, prefix, pattern)
 
-    df_view_posicao = transform_posicao(df_posicao)
+    required_columns = ["veiculo_acessivel_pessoas_deficiencia", "latitude_localizada", "longitude_localizada", "quantidade_veiculos_localizados", "data", "hora", "hora_cheia", "dia_semana"]
+    if all(col in df_posicao.columns for col in required_columns):
+        df_posicao = df_posicao[required_columns]
 
-    view_posicao = df_view_posicao.groupby(['veiculo_acessivel_pessoas_deficiencia',  'data', 'hora', 'hora_cheia', 'dia_semana', 'key_loc'])['quantidade_veiculos_localizados'].agg('count').reset_index()
+        df_view_posicao = transform_posicao(df_posicao)
 
-    # Exemplo de chamada da função
-    salvar_dataframe_incremental_no_minio(
-        s3_client= s3_client,
-        df_novos=view_posicao,  # DataFrame que você quer salvar
-        bucket_name=GOLD_BUCKET,  # Nome do bucket Gold
-        gold_file_key=file,  # Caminho do arquivo no Gold
-        minio_endpoint=MINIO_ENDPOINT,  # Ajuste para o seu endpoint MinIO
-        access_key=MINIO_ACCESS_KEY,  # Insira sua chave de acesso
-        secret_key=MINIO_SECRET_KEY,  # Insira sua chave secreta
-    )
+        view_posicao = df_view_posicao.groupby(['veiculo_acessivel_pessoas_deficiencia',  'data', 'hora', 'hora_cheia', 'dia_semana', 'key_loc'])['quantidade_veiculos_localizados'].agg('count').reset_index()
 
-    salvar_dataframe_no_postgres(
-        df=view_posicao,
-        tabela_nome='view_posicao',
-        schema_nome='gold',
-        usuario='airflow',
-        senha='airflow',
-        host='postgres',
-        porta=5432,
-        database='postgres',
-        method="append"
-    )
+        # Exemplo de chamada da função
+        salvar_dataframe_incremental_no_minio(
+            s3_client= s3_client,
+            df_novos=view_posicao,  # DataFrame que você quer salvar
+            bucket_name=GOLD_BUCKET,  # Nome do bucket Gold
+            gold_file_key=file,  # Caminho do arquivo no Gold
+            minio_endpoint=MINIO_ENDPOINT,  # Ajuste para o seu endpoint MinIO
+            access_key=MINIO_ACCESS_KEY,  # Insira sua chave de acesso
+            secret_key=MINIO_SECRET_KEY,  # Insira sua chave secreta
+        )
 
-    
+        salvar_dataframe_no_postgres(
+            df=view_posicao,
+            tabela_nome='view_posicao',
+            schema_nome='gold',
+            usuario='airflow',
+            senha='airflow',
+            host='postgres',
+            porta=5432,
+            database='postgres',
+            method="append"
+        )
+    else:
+        print("Colunas obrigatórias ausentes. Ignorando o processamento para este arquivo.")
 
     # Criando o DAG
 with DAG(

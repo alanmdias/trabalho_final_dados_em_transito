@@ -23,8 +23,8 @@ from funcoes import extrair_dados_silver, dimension_paradas, extrair_dados_silve
 
 # Configurações do MinIO
 MINIO_ENDPOINT = "http://minio:9000"
-MINIO_ACCESS_KEY = "6MCHYeyIPu8gka6gvIns"
-MINIO_SECRET_KEY = "QaMn37c0t8QsAWy1NLpnXKIfDoY6CMxb9ZYoHQw3"
+MINIO_ACCESS_KEY = "pN2nJpDS8zkBM79eIKrh" #"6MCHYeyIPu8gka6gvIns"
+MINIO_SECRET_KEY = "AYoyusCiw9CGodBvpOe3VL5Qlote2SUVSiZnSfxu" #"QaMn37c0t8QsAWy1NLpnXKIfDoY6CMxb9ZYoHQw3"
 SILVER_BUCKET = "silver"
 GOLD_BUCKET = "gold"
 
@@ -56,66 +56,68 @@ def inserir_dados_gold():
 
     df_paradas = extrair_dados_silver_v3(s3_client,MINIO_ENDPOINT, MINIO_ACCESS_KEY, MINIO_SECRET_KEY, SILVER_BUCKET, GOLD_BUCKET, file, prefix, pattern)
 
-    view_linhas_paradas = df_paradas.groupby(['codigo_parada', 'nome_parada', 'data', "hora", 'hora_cheia', 'dia_semana'])['codigo_linha'].agg('count').reset_index()
+    if 'codigo_parada' in df_paradas.columns:
+        view_linhas_paradas = df_paradas.groupby(['codigo_parada', 'nome_parada', 'data', 'hora', 'hora_cheia', 'dia_semana'])['codigo_linha'].agg('count').reset_index()
+            # Exemplo de chamada da função
+        salvar_dataframe_incremental_no_minio(
+            s3_client= s3_client,
+            df_novos=view_linhas_paradas,  # DataFrame que você quer salvar
+            bucket_name=GOLD_BUCKET,  # Nome do bucket Gold
+            gold_file_key=file,  # Caminho do arquivo no Gold
+            minio_endpoint=MINIO_ENDPOINT,  # Ajuste para o seu endpoint MinIO
+            access_key=MINIO_ACCESS_KEY,  # Insira sua chave de acesso
+            secret_key=MINIO_SECRET_KEY,  # Insira sua chave secreta
+        )
 
-    # Exemplo de chamada da função
-    salvar_dataframe_incremental_no_minio(
-        s3_client= s3_client,
-        df_novos=view_linhas_paradas,  # DataFrame que você quer salvar
-        bucket_name=GOLD_BUCKET,  # Nome do bucket Gold
-        gold_file_key=file,  # Caminho do arquivo no Gold
-        minio_endpoint=MINIO_ENDPOINT,  # Ajuste para o seu endpoint MinIO
-        access_key=MINIO_ACCESS_KEY,  # Insira sua chave de acesso
-        secret_key=MINIO_SECRET_KEY,  # Insira sua chave secreta
-    )
+        salvar_dataframe_no_postgres(
+            df=view_linhas_paradas,
+            tabela_nome='view_paradas',
+            schema_nome='gold',
+            usuario='airflow',
+            senha='airflow',
+            host='postgres',
+            porta=5432,
+            database='postgres',
+            method="append"
+        )  
 
-    salvar_dataframe_no_postgres(
-        df=view_linhas_paradas,
-        tabela_nome='view_paradas',
-        schema_nome='gold',
-        usuario='airflow',
-        senha='airflow',
-        host='postgres',
-        porta=5432,
-        database='postgres',
-        method="append"
-    )  
+        # Chamar a função
+        df_paradas = extrair_dados_silver(MINIO_ENDPOINT, MINIO_ACCESS_KEY, MINIO_SECRET_KEY,SILVER_BUCKET,prefix, pattern)
 
-    # Chamar a função
-    df_paradas = extrair_dados_silver(MINIO_ENDPOINT, MINIO_ACCESS_KEY, MINIO_SECRET_KEY,SILVER_BUCKET,prefix, pattern)
+        df_dimension_paradas = dimension_paradas(df_paradas)
 
-    df_dimension_paradas = dimension_paradas(df_paradas)
+        file = 'localizacao.csv'
 
-    file = 'localizacao.csv'
+        df_localizacao = extrair_dados_silver_v2(MINIO_ENDPOINT, MINIO_ACCESS_KEY,MINIO_SECRET_KEY, SILVER_BUCKET, file)
+        df_localizacao = df_localizacao[["nome_distrito", "sigla_distrito", "codigo_distrito", "key_loc"]]
+        df_localizacao["key_loc"] = df_localizacao["key_loc"].astype("str")
 
-    df_localizacao = extrair_dados_silver_v2(MINIO_ENDPOINT, MINIO_ACCESS_KEY,MINIO_SECRET_KEY, SILVER_BUCKET, file)
-    df_localizacao = df_localizacao[["nome_distrito", "sigla_distrito", "codigo_distrito", "key_loc"]]
-    df_localizacao["key_loc"] = df_localizacao["key_loc"].astype("str")
+        df_join = df_dimension_paradas.merge(df_localizacao, how="left", on=["key_loc"])
 
-    df_join = df_dimension_paradas.merge(df_localizacao, how="left", on=["key_loc"])
+        salvar_dataframe_no_minio(
+            df_join,
+            bucket_name='gold',
+            file_name='dim_paradas.parquet',
+            minio_endpoint=MINIO_ENDPOINT,
+            access_key=MINIO_ACCESS_KEY,
+            secret_key=MINIO_SECRET_KEY
+        )
 
-    salvar_dataframe_no_minio(
-        df_join,
-        bucket_name='gold',
-        file_name='dim_paradas.parquet',
-        minio_endpoint=MINIO_ENDPOINT,
-        access_key=MINIO_ACCESS_KEY,
-        secret_key=MINIO_SECRET_KEY
-    )
+        salvar_dataframe_no_postgres(
+            df=df_join,
+            tabela_nome='dim_paradas',
+            schema_nome='gold',
+            usuario='airflow',
+            senha='airflow',
+            host='postgres',
+            porta=5432,
+            database='postgres',
+            method="replace"
+        )
+    else:
+        print("Coluna 'codigo_parada' não encontrada. Ignorando o processamento para este arquivo.")
 
-    salvar_dataframe_no_postgres(
-        df=df_join,
-        tabela_nome='dim_paradas',
-        schema_nome='gold',
-        usuario='airflow',
-        senha='airflow',
-        host='postgres',
-        porta=5432,
-        database='postgres',
-        method="replace"
-    )
-
-    # Criando o DAG
+# Criando o DAG
 with DAG(
     'dag_trusted_to_refined_parada',
     default_args=default_args,

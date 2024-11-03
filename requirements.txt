@@ -2,8 +2,8 @@ requests
 psycopg2-binary
 apache-airflow-providers-jdbc
 mysql-connector-python
-openpyxl
+#openpyxl
 boto3
-re
+#re
 datetime
 pandas

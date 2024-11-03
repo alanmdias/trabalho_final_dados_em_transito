@@ -19,8 +19,8 @@ from funcoes import gerar_path, get_dados, get_dados_v2, salvar_json, renomear_c
 # Definindo variáveis para salvar dados no raw do minio
 minio_url = "http://minio:9000" # QUANDO FOR RODAR NO AIRFLOW
 #minio_url = "http://localhost:9050" # QUANDO ESTIVER LOCAL
-access_key = "6MCHYeyIPu8gka6gvIns"
-secret_key = "QaMn37c0t8QsAWy1NLpnXKIfDoY6CMxb9ZYoHQw3"
+access_key = "pN2nJpDS8zkBM79eIKrh" 
+secret_key = "AYoyusCiw9CGodBvpOe3VL5Qlote2SUVSiZnSfxu" 
 
 # Definindo os argumentos padrão para as tarefas do DAG
 default_args = {
