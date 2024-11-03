@@ -3,3 +3,7 @@ psycopg2-binary
 apache-airflow-providers-jdbc
 mysql-connector-python
 openpyxl
+boto3
+re
+datetime
+pandas
